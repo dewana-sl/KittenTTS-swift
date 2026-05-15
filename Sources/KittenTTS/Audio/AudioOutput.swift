@@ -11,6 +11,7 @@ import AVFoundation
 final class AudioOutput: NSObject {
 
     private var player: AVAudioPlayer?
+    private var paused = false
 
     // MARK: - Playback
 
@@ -25,6 +26,7 @@ final class AudioOutput: NSObject {
     ///   configured, or ``KittenTTSError/playbackFailed(_:)`` if the player fails.
     func play(samples: [Float], sampleRate: Int) async throws {
         guard Self.isAudioAvailable() else { return }
+        stop()
 
         let wavData = WAVEncoder.encode(samples: samples, sampleRate: sampleRate)
 
@@ -43,6 +45,7 @@ final class AudioOutput: NSObject {
                 p.delegate = self
                 p.prepareToPlay()
                 self.player = p
+                self.paused = false
 
                 // Stash continuation so the delegate can resume it on completion.
                 self.continuation = cont
@@ -58,8 +61,25 @@ final class AudioOutput: NSObject {
     func stop() {
         player?.stop()
         player = nil
+        paused = false
         continuation?.resume()
         continuation = nil
+    }
+
+    func pause() {
+        guard let player, player.isPlaying else { return }
+        player.pause()
+        paused = true
+    }
+
+    func resume() {
+        guard let player, paused else { return }
+        player.play()
+        paused = false
+    }
+
+    var isPlaying: Bool {
+        player?.isPlaying ?? false
     }
 
     // MARK: - Private
@@ -85,6 +105,7 @@ final class AudioOutput: NSObject {
 extension AudioOutput: AVAudioPlayerDelegate {
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         self.player = nil
+        paused = false
         if flag {
             continuation?.resume()
         } else {
@@ -95,6 +116,7 @@ extension AudioOutput: AVAudioPlayerDelegate {
 
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         self.player = nil
+        paused = false
         continuation?.resume(
             throwing: KittenTTSError.playbackFailed(error?.localizedDescription ?? "Decode error")
         )

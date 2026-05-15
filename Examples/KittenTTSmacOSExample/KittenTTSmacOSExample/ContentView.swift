@@ -202,7 +202,7 @@ final class ViewModel {
         guard tts == nil else { return }
         do {
             state = .downloading(0)
-            let config = KittenTTSConfig(model: selectedModel)
+            let config = KittenTTSConfig(model: selectedModel.rawValue)
             tts = try await KittenTTS(config) { [weak self] progress in
                 Task { @MainActor [weak self] in
                     self?.state = .downloading(progress)
@@ -221,7 +221,7 @@ final class ViewModel {
         guard !text.isEmpty else { return }
         state = .playing
         do {
-            result = try await tts.speak(text, voice: selectedVoice, speed: Float(speed))
+            result = try await tts.speak(text, options: .init(voice: selectedVoice.rawValue, speed: Float(speed)))
             state = .idle
         } catch {
             state = .error(error.localizedDescription)
@@ -234,7 +234,7 @@ final class ViewModel {
         guard !text.isEmpty else { return }
         state = .generating
         do {
-            result = try await tts.generate(text, voice: selectedVoice, speed: Float(speed))
+            result = try await tts.generate(text, options: .init(voice: selectedVoice.rawValue, speed: Float(speed)))
             state = .idle
         } catch {
             state = .error(error.localizedDescription)

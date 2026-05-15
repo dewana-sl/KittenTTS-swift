@@ -1,5 +1,34 @@
 import Foundation
 
+public struct KittenTTSGenerateOptions: Sendable, Equatable {
+    public var voice: KittenVoice?
+    public var speed: Float?
+
+    public init(voice: KittenVoice? = nil, speed: Float? = nil) {
+        self.voice = voice
+        self.speed = speed
+    }
+
+    public init(voice: String, speed: Float? = nil) {
+        guard let parsedVoice = KittenVoice(id: voice) else {
+            preconditionFailure("Unknown KittenTTS voice: \(voice)")
+        }
+        self.voice = parsedVoice
+        self.speed = speed
+    }
+}
+
+public struct KittenTTSCacheInfo: Sendable, Equatable {
+    public let model: KittenModel
+    public let directory: URL
+    public let onnxURL: URL
+    public let voicesURL: URL
+    public let onnxExists: Bool
+    public let voicesExists: Bool
+
+    public var isCached: Bool { onnxExists && voicesExists }
+}
+
 /// The KittenTTS speech-synthesis engine.
 ///
 /// `KittenTTS` downloads phonemizer data and the model on first use, initialises
@@ -26,7 +55,7 @@ import Foundation
 /// ## Custom configuration
 ///
 /// ```swift
-/// let config = KittenTTSConfig(defaultVoice: .luna, speed: 1.1)
+/// let config = KittenTTSConfig(defaultVoice: "luna", speed: 1.1)
 /// let tts = try await KittenTTS(config) { progress in
 ///     print("Download progress: \(Int(progress * 100))%")
 /// }
@@ -143,6 +172,21 @@ public actor KittenTTS {
         )
     }
 
+    public func generate(
+        _ text: String,
+        options: KittenTTSGenerateOptions
+    ) async throws -> KittenTTSResult {
+        try await generate(text, voice: options.voice, speed: options.speed)
+    }
+
+    public func generate(
+        _ text: String,
+        voice: String,
+        speed: Float? = nil
+    ) async throws -> KittenTTSResult {
+        try await generate(text, options: .init(voice: voice, speed: speed))
+    }
+
     /// Synthesise speech for the given text, yielding results sentence by sentence.
     ///
     /// This is the streaming counterpart of ``generate(_:voice:speed:)``. Instead of
@@ -153,7 +197,7 @@ public actor KittenTTS {
     /// the text is still being synthesised:
     ///
     /// ```swift
-    /// for try await chunk in tts.generateStreaming("Long article text...") {
+    /// for try await chunk in tts.stream("Long article text...") {
     ///     audioEngine.scheduleBuffer(chunk.samples)
     /// }
     /// ```
@@ -211,6 +255,29 @@ public actor KittenTTS {
         }
     }
 
+    public func stream(
+        _ text: String,
+        voice: KittenVoice? = nil,
+        speed: Float? = nil
+    ) -> AsyncThrowingStream<KittenTTSResult, Error> {
+        generateStreaming(text, voice: voice, speed: speed)
+    }
+
+    public func stream(
+        _ text: String,
+        options: KittenTTSGenerateOptions
+    ) -> AsyncThrowingStream<KittenTTSResult, Error> {
+        generateStreaming(text, voice: options.voice, speed: options.speed)
+    }
+
+    public func stream(
+        _ text: String,
+        voice: String,
+        speed: Float? = nil
+    ) -> AsyncThrowingStream<KittenTTSResult, Error> {
+        stream(text, options: .init(voice: voice, speed: speed))
+    }
+
     /// Synthesise and play speech for the given text.
     ///
     /// This is a convenience wrapper that calls ``generate(_:voice:speed:)`` and then
@@ -229,13 +296,52 @@ public actor KittenTTS {
         speed: Float? = nil
     ) async throws -> KittenTTSResult {
         let result = try await generate(text, voice: voice, speed: speed)
-        try await audioOutput.play(samples: result.samples, sampleRate: result.sampleRate)
+        try await play(result)
         return result
+    }
+
+    @discardableResult
+    public func speak(
+        _ text: String,
+        options: KittenTTSGenerateOptions
+    ) async throws -> KittenTTSResult {
+        let result = try await generate(text, options: options)
+        try await play(result)
+        return result
+    }
+
+    @discardableResult
+    public func speak(
+        _ text: String,
+        voice: String,
+        speed: Float? = nil
+    ) async throws -> KittenTTSResult {
+        try await speak(text, options: .init(voice: voice, speed: speed))
+    }
+
+    public func play(_ result: KittenTTSResult) async throws {
+        try await audioOutput.play(samples: result.samples, sampleRate: result.sampleRate)
     }
 
     /// Stop any currently active audio playback.
     public func stopSpeaking() {
         audioOutput.stop()
+    }
+
+    public func stop() {
+        stopSpeaking()
+    }
+
+    public func pauseSpeaking() {
+        audioOutput.pause()
+    }
+
+    public func resumeSpeaking() {
+        audioOutput.resume()
+    }
+
+    public var isSpeaking: Bool {
+        audioOutput.isPlaying
     }
 
     // MARK: - Static helpers
@@ -259,14 +365,31 @@ public actor KittenTTS {
         isModelCached(for: KittenTTSConfig(model: model))
     }
 
-    /// Pre-download and warm up the model without creating a full ``KittenTTS`` instance.
-    ///
-    /// Call this early in your app's lifecycle (e.g. in `applicationDidFinishLaunching`)
-    /// so the engine is ready before the user needs it.
-    ///
-    /// - Parameter config: Configuration identifying which model to warm up.
-    /// - Throws: ``KittenTTSError`` if download or initialisation fails.
+    public static func isModelCached(_ model: String) -> Bool {
+        isModelCached(for: KittenTTSConfig(model: model))
+    }
+
+    public static func cacheInfo(for config: KittenTTSConfig = KittenTTSConfig()) async throws -> KittenTTSCacheInfo {
+        ModelDownloader.cacheInfo(for: config)
+    }
+
+    public static func predownload(config: KittenTTSConfig = KittenTTSConfig()) async throws {
+        _ = try await ModelDownloader.downloadModelIfNeeded(for: config)
+    }
+
+    /// Deprecated compatibility alias. Use ``predownload(config:)``.
+    @available(*, deprecated, renamed: "predownload(config:)")
     public static func prewarm(config: KittenTTSConfig = KittenTTSConfig()) async throws {
-        _ = try await KittenTTS(config)
+        try await predownload(config: config)
+    }
+
+    public static func validateAssets(for config: KittenTTSConfig = KittenTTSConfig()) throws {
+        let info = ModelDownloader.cacheInfo(for: config)
+        guard info.onnxExists else { throw KittenTTSError.modelFileNotFound(info.onnxURL) }
+        guard info.voicesExists else { throw KittenTTSError.voicesFileNotFound(info.voicesURL) }
+    }
+
+    public static func validateAssets(_ config: KittenTTSConfig = KittenTTSConfig()) throws {
+        try validateAssets(for: config)
     }
 }

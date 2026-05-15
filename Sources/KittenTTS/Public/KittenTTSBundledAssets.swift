@@ -62,7 +62,7 @@ public struct KittenTTSBundledAssetsManifest: Sendable, Decodable, Equatable {
                 forKey: .models
             )
             models = try Dictionary(uniqueKeysWithValues: rawModels.map { key, value in
-                guard let model = KittenModel(rawValue: key) else {
+                guard let model = KittenModel(id: key) else {
                     throw KittenTTSError.invalidModelData(
                         "Unknown KittenTTS model in bundled assets manifest: \(key)"
                     )
@@ -96,7 +96,7 @@ public struct KittenTTSBundledAssetsManifest: Sendable, Decodable, Equatable {
         forKey key: CodingKeys
     ) throws -> KittenModel {
         let rawValue = try container.decode(String.self, forKey: key)
-        guard let model = KittenModel(rawValue: rawValue) else {
+        guard let model = KittenModel(id: rawValue) else {
             throw KittenTTSError.invalidModelData(
                 "Unknown KittenTTS model in bundled assets manifest: \(rawValue)"
             )

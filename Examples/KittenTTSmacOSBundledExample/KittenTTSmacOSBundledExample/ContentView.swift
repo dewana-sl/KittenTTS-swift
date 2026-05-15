@@ -295,8 +295,8 @@ final class ViewModel {
             )
             let tts = try await KittenTTS(config)
             let result = play
-                ? try await tts.speak(text, voice: selectedVoice, speed: Float(speed))
-                : try await tts.generate(text, voice: selectedVoice, speed: Float(speed))
+                ? try await tts.speak(text, options: .init(voice: selectedVoice.rawValue, speed: Float(speed)))
+                : try await tts.generate(text, options: .init(voice: selectedVoice.rawValue, speed: Float(speed)))
             try result.writeWAV(to: outputURL)
             lastResult = result
             state = .idle

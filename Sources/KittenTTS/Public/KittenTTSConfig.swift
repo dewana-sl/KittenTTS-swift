@@ -6,8 +6,8 @@ import Foundation
 ///
 /// ```swift
 /// let config = KittenTTSConfig(
-///     model: .nano,
-///     defaultVoice: .luna,
+///     model: "nano",
+///     defaultVoice: "luna",
 ///     speed: 1.1
 /// )
 /// let tts = try await KittenTTS(config)
@@ -104,15 +104,68 @@ public struct KittenTTSConfig: Sendable {
         self.maxTokensPerChunk = max(50, maxTokensPerChunk)
     }
 
+    public init(
+        model: String,
+        defaultVoice: String = "bella",
+        speed: Float = 1.0,
+        phonemizer: KittenPhonemizerType = .builtin,
+        storageDirectory: URL? = nil,
+        modelFiles: KittenTTSModelFiles? = nil,
+        ortNumThreads: Int = 4,
+        maxTokensPerChunk: Int = 400
+    ) {
+        guard let parsedModel = KittenModel(id: model) else {
+            preconditionFailure("Unknown KittenTTS model: \(model)")
+        }
+        guard let parsedVoice = KittenVoice(id: defaultVoice) else {
+            preconditionFailure("Unknown KittenTTS voice: \(defaultVoice)")
+        }
+        self.init(
+            model: parsedModel,
+            defaultVoice: parsedVoice,
+            speed: speed,
+            phonemizer: phonemizer,
+            storageDirectory: storageDirectory,
+            modelFiles: modelFiles,
+            ortNumThreads: ortNumThreads,
+            maxTokensPerChunk: maxTokensPerChunk
+        )
+    }
+
+    public init(
+        model: KittenModel = .nano,
+        defaultVoice: String,
+        speed: Float = 1.0,
+        phonemizer: KittenPhonemizerType = .builtin,
+        storageDirectory: URL? = nil,
+        modelFiles: KittenTTSModelFiles? = nil,
+        ortNumThreads: Int = 4,
+        maxTokensPerChunk: Int = 400
+    ) {
+        guard let parsedVoice = KittenVoice(id: defaultVoice) else {
+            preconditionFailure("Unknown KittenTTS voice: \(defaultVoice)")
+        }
+        self.init(
+            model: model,
+            defaultVoice: parsedVoice,
+            speed: speed,
+            phonemizer: phonemizer,
+            storageDirectory: storageDirectory,
+            modelFiles: modelFiles,
+            ortNumThreads: ortNumThreads,
+            maxTokensPerChunk: maxTokensPerChunk
+        )
+    }
+
     // MARK: - Resolved storage URL
 
     /// The resolved directory on disk where model files for this config are stored.
     var resolvedStorageDirectory: URL {
-        if let custom = storageDirectory { return custom.appendingPathComponent(model.rawValue) }
+        if let custom = storageDirectory { return custom.appendingPathComponent(model.repositoryID) }
         let appSupport = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return appSupport
             .appendingPathComponent("KittenTTS", isDirectory: true)
-            .appendingPathComponent(model.rawValue, isDirectory: true)
+            .appendingPathComponent(model.repositoryID, isDirectory: true)
     }
 }

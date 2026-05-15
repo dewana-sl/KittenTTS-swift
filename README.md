@@ -3,9 +3,10 @@
 On-device text-to-speech Swift SDK for iOS and macOS, powered by [Kitten TTS](https://github.com/KittenML/KittenTTS).
 
 ```swift
-let tts = try await KittenTTS()
-let result = try await tts.generate("Hello from Kitten TTS!")
-try await tts.speak("Good morning!")
+let config = KittenTTSConfig(model: "mini", defaultVoice: "luna")
+let tts = try await KittenTTS(config)
+let result = try await tts.generate("Hello from Kitten TTS!", options: .init(voice: "luna"))
+try await tts.play(result)
 ```
 
 ## Features
@@ -82,7 +83,7 @@ try await tts.speak("Hello, world!")
 
 // Or generate first, then play later
 let result = try await tts.generate("Hello, world!")
-try await tts.speak(result.inputText, voice: result.voice)
+try await tts.play(result)
 ```
 
 ### 4. Save as WAV
@@ -102,8 +103,8 @@ try result.writeWAV(to: url)
 
 ```swift
 let config = KittenTTSConfig(
-    model: .nano,           // .nano (fp32), .nanoInt8, .micro, .mini
-    defaultVoice: .luna,    // default voice
+    model: "mini",          // "nano", "nano-int8", "micro", "mini"
+    defaultVoice: "luna",   // default voice
     speed: 1.1,             // global speed multiplier (0.5–2.0)
     storageDirectory: nil,  // nil = Application Support/KittenTTS/
     modelFiles: nil,
@@ -115,12 +116,12 @@ let tts = try await KittenTTS(config)
 
 ## Models
 
-| Case | Name | Size | Parameters |
+| ID | Name | Size | Parameters |
 |------|------|------|------------|
-| `.nano` *(default)* | Nano (fp32) | ~56 MB | 15M |
-| `.nanoInt8` | Nano (int8) | ~25 MB | 15M |
-| `.micro` | Micro | ~41 MB | 40M |
-| `.mini` | Mini | ~80 MB | 80M |
+| `"nano"` *(default)* | Nano (fp32) | ~56 MB | 15M |
+| `"nano-int8"` | Nano (int8) | ~25 MB | 15M |
+| `"micro"` | Micro | ~41 MB | 40M |
+| `"mini"` | Mini | ~80 MB | 80M |
 
 ## Phonemizers
 
@@ -165,16 +166,16 @@ let config = KittenTTSConfig(phonemizer: .custom(MyPhonemizer()))
 
 ## Voices
 
-| Case | Name | Gender |
+| ID | Name | Gender |
 |------|------|--------|
-| `.bella` *(default)* | Bella | Female |
-| `.jasper` | Jasper | Male |
-| `.luna` | Luna | Female |
-| `.bruno` | Bruno | Male |
-| `.rosie` | Rosie | Female |
-| `.hugo` | Hugo | Male |
-| `.kiki` | Kiki | Female |
-| `.leo` | Leo | Male |
+| `"bella"` *(default)* | Bella | Female |
+| `"jasper"` | Jasper | Male |
+| `"luna"` | Luna | Female |
+| `"bruno"` | Bruno | Male |
+| `"rosie"` | Rosie | Female |
+| `"hugo"` | Hugo | Male |
+| `"kiki"` | Kiki | Female |
+| `"leo"` | Leo | Male |
 
 ## API Reference
 
@@ -190,20 +191,34 @@ public func generate(_ text: String,
                      voice: KittenVoice? = nil,
                      speed: Float? = nil) async throws -> KittenTTSResult
 
+public func generate(_ text: String,
+                     options: KittenTTSGenerateOptions) async throws -> KittenTTSResult
+
 // Generate and play
 @discardableResult
 public func speak(_ text: String,
                   voice: KittenVoice? = nil,
                   speed: Float? = nil) async throws -> KittenTTSResult
 
+public func play(_ result: KittenTTSResult) async throws
+
+public func stream(_ text: String,
+                   voice: KittenVoice? = nil,
+                   speed: Float? = nil) -> AsyncThrowingStream<KittenTTSResult, Error>
+
 // Stop playback
 public func stopSpeaking()
+public func pauseSpeaking()
+public func resumeSpeaking()
+public var isSpeaking: Bool
 
 // Check if model is cached (no download required)
 public static func isModelCached(for config: KittenTTSConfig = .init()) -> Bool
 
 // Pre-download without creating a full instance
-public static func prewarm(config: KittenTTSConfig = .init()) async throws
+public static func cacheInfo(for config: KittenTTSConfig = .init()) async throws -> KittenTTSCacheInfo
+public static func predownload(config: KittenTTSConfig = .init()) async throws
+public static func validateAssets(_ config: KittenTTSConfig = .init()) throws
 ```
 
 ### `KittenTTSResult`

@@ -69,7 +69,7 @@ final class TTSEngine {
     /// - Returns: An ``Output`` containing PCM samples, per-token durations, and the phoneme string.
     /// - Throws: ``KittenTTSError`` on inference failure or missing voice data.
     func generate(text: String, voice: KittenVoice, speed: Float) throws -> Output {
-        guard let embedding = voices[voice.rawValue] else {
+        guard let embedding = voices[voice.embeddingKey] else {
             throw KittenTTSError.noVoiceEmbedding(voice)
         }
 

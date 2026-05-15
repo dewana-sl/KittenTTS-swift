@@ -248,7 +248,7 @@ final class ViewModel {
         guard let tts else { return }
         state = .generating
         do {
-            result = try await tts.generate(inputText, voice: selectedVoice, speed: Float(speed))
+            result = try await tts.generate(inputText, options: .init(voice: selectedVoice.rawValue, speed: Float(speed)))
             state = .idle
         } catch {
             state = .error(error.localizedDescription)
@@ -260,8 +260,7 @@ final class ViewModel {
         state = .playing
         do {
             result = try await tts.speak(existingResult.inputText,
-                                         voice: existingResult.voice,
-                                         speed: Float(speed))
+                                         options: .init(voice: existingResult.voice.rawValue, speed: Float(speed)))
             state = .idle
         } catch {
             state = .error(error.localizedDescription)
