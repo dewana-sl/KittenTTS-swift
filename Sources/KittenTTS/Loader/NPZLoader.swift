@@ -18,7 +18,7 @@ struct VoiceEmbedding: Sendable {
 
     /// Return the embedding slice for a given text length.
     ///
-    /// - Parameter length: Number of tokens in the input sequence.
+    /// - Parameter length: Number of characters in the normalized input text.
     /// - Returns: A `[Float]` vector of length ``cols``.
     func slice(forTextLength length: Int) -> [Float] {
         let idx   = min(length, rows - 1)

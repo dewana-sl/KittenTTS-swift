@@ -52,4 +52,35 @@ enum TextCleaner {
         tokens.append(padTokenID)
         return tokens
     }
+
+    /// Encode IPA after applying the same basic tokenizer used by the Python SDK.
+    static func encodeTokenized(_ phonemes: String) -> [Int64] {
+        let tokenized = basicEnglishTokenize(phonemes).joined(separator: " ")
+        return encode(tokenized)
+    }
+
+    private static func basicEnglishTokenize(_ text: String) -> [String] {
+        var tokens: [String] = []
+        var currentWord = ""
+
+        func flushWord() {
+            guard !currentWord.isEmpty else { return }
+            tokens.append(currentWord)
+            currentWord.removeAll(keepingCapacity: true)
+        }
+
+        for scalar in text.unicodeScalars {
+            if CharacterSet.alphanumerics.contains(scalar) || scalar == "_" {
+                currentWord.unicodeScalars.append(scalar)
+            } else if CharacterSet.whitespacesAndNewlines.contains(scalar) {
+                flushWord()
+            } else {
+                flushWord()
+                tokens.append(String(scalar))
+            }
+        }
+
+        flushWord()
+        return tokens
+    }
 }

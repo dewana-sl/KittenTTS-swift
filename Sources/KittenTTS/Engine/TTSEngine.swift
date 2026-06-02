@@ -75,7 +75,7 @@ final class TTSEngine {
 
         let normalised = TextPreprocessor.process(text)
         let phonemes   = phonemizer.phonemize(normalised)
-        let tokens     = TextCleaner.encode(phonemes)
+        let tokens     = TextCleaner.encodeTokenized(phonemes)
         let chunks     = splitIntoChunks(tokens)
         let effectiveSpeed = speed * config.model.speedPrior(for: voice)
 
@@ -87,7 +87,7 @@ final class TTSEngine {
             let result = try runChunk(
                 tokens: chunk,
                 embedding: embedding,
-                phonemeLength: phonemes.count,
+                textLength: normalised.count,
                 speed: effectiveSpeed
             )
             allSamples.append(contentsOf: result.samples)
@@ -109,9 +109,9 @@ final class TTSEngine {
 
     private func runChunk(tokens: [Int64],
                           embedding: VoiceEmbedding,
-                          phonemeLength: Int,
+                          textLength: Int,
                           speed: Float) throws -> (samples: [Float], durations: [Int64]) {
-        let styleVec = embedding.slice(forTextLength: phonemeLength)
+        let styleVec = embedding.slice(forTextLength: textLength)
 
         let tokenTensor = try ortTensor(int64: tokens, shape: [1, tokens.count])
         let styleTensor = try ortTensor(float: styleVec, shape: [1, styleVec.count])
