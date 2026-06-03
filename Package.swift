@@ -60,6 +60,7 @@ let package = Package(
                     "-ffast-math",
                     "-fno-finite-math-only",
                     "-funroll-loops",
+                    "-ftree-vectorize",
                 ], .when(platforms: [.iOS, .macOS])),
                 .unsafeFlags(["-march=native"], .when(platforms: [.macOS])),
             ]
