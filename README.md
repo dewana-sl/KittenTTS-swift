@@ -107,10 +107,40 @@ let config = KittenTTSConfig(
     speed: 1.1,             // global speed multiplier (0.5–2.0)
     storageDirectory: nil,  // nil = Application Support/KittenTTS/
     modelFiles: nil,
+    inferenceEngine: .onnx, // .onnx (default) or .native
     ortNumThreads: 4,       // ONNX intra-op thread count
     maxTokensPerChunk: 400  // max tokens per inference chunk
 )
 let tts = try await KittenTTS(config)
+```
+
+## Native C++ backend
+
+ONNX Runtime remains the default backend. To try the native C++ inference
+engine, opt in explicitly:
+
+```swift
+let config = KittenTTSConfig(
+    model: .nano,
+    inferenceEngine: .native
+)
+let tts = try await KittenTTS(config)
+let result = try await tts.generate("Hello from the native engine.", voice: .bella)
+```
+
+Native assets are downloaded from `KittenML/meownn-models` and cached beside the
+selected model. You can also provide local native files:
+
+```swift
+let nativeFiles = KittenTTSNativeModelFiles(
+    archURL: URL(fileURLWithPath: "/path/to/kitten_fp32_15m_arch.json"),
+    weightsURL: URL(fileURLWithPath: "/path/to/kitten_fp32_15m.bin"),
+    voiceDirectoryURL: URL(fileURLWithPath: "/path/to/voices_kitten_15m")
+)
+let config = KittenTTSConfig(
+    inferenceEngine: .native,
+    nativeConfig: KittenTTSNativeConfig(modelFiles: nativeFiles)
+)
 ```
 
 ## Models

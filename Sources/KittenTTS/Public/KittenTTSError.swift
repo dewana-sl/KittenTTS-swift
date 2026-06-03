@@ -22,7 +22,7 @@ public enum KittenTTSError: LocalizedError, Sendable {
     /// No embedding exists in the voices file for the requested voice.
     case noVoiceEmbedding(KittenVoice)
 
-    /// The ONNX inference step failed.
+    /// The inference step failed.
     case inferenceFailed(String)
 
     /// The model produced zero audio samples.
@@ -70,7 +70,7 @@ public enum KittenTTSError: LocalizedError, Sendable {
         case .noVoiceEmbedding(let voice):
             return "No embedding found for voice '\(voice.displayName)' (id: \(voice.rawValue))."
         case .inferenceFailed(let msg):
-            return "ONNX inference failed: \(msg)"
+            return "Inference failed: \(msg)"
         case .emptyOutput:
             return "The model produced no audio samples."
         case .downloadFailed(let msg):

@@ -15,6 +15,10 @@ let package = Package(
             name: "KittenTTS",
             targets: ["KittenTTS"]
         ),
+        .executable(
+            name: "NativeVsONNXBenchmark",
+            targets: ["NativeVsONNXBenchmark"]
+        ),
     ],
     dependencies: [
         .package(
@@ -44,19 +48,47 @@ let package = Package(
         ),
 
         .target(
+            name: "CKittenNativeEngine",
+            path: "Sources/CKittenNativeEngine",
+            publicHeadersPath: "include",
+            cxxSettings: [
+                .headerSearchPath("src"),
+                .define("NDEBUG", .when(configuration: .release)),
+                .unsafeFlags(["-std=c++17"]),
+                .unsafeFlags([
+                    "-O3",
+                    "-ffast-math",
+                    "-fno-finite-math-only",
+                    "-funroll-loops",
+                ], .when(platforms: [.iOS, .macOS])),
+                .unsafeFlags(["-march=native"], .when(platforms: [.macOS])),
+            ]
+        ),
+
+        .target(
             name: "KittenTTS",
             dependencies: [
                 "Czlib",
                 "CEPhonemizer",
+                "CKittenNativeEngine",
                 .product(name: "onnxruntime", package: "onnxruntime-swift-package-manager"),
             ],
-            path: "Sources/KittenTTS"
+            path: "Sources/KittenTTS",
+            resources: [
+                .process("Resources"),
+            ]
         ),
 
         .testTarget(
             name: "KittenTTSTests",
             dependencies: ["KittenTTS"],
             path: "Tests/KittenTTSTests"
+        ),
+
+        .executableTarget(
+            name: "NativeVsONNXBenchmark",
+            dependencies: ["KittenTTS"],
+            path: "Benchmarks/NativeVsONNXBenchmark"
         ),
     ]
 )

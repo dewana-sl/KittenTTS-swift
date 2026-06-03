@@ -28,9 +28,14 @@ public struct KittenTTSConfig: Sendable {
 
     /// Default speed multiplier (0.5 – 2.0) applied when `speed` is omitted from a call.
     ///
-    /// This is multiplied by the voice's own ``KittenVoice/defaultSpeed``.
+    /// By default, this is multiplied by the model's per-voice speed prior.
     /// Defaults to `1.0` (natural speed).
     public var speed: Float
+
+    /// Whether generation applies the model's per-voice speed priors.
+    ///
+    /// Defaults to `true` to preserve existing model behavior.
+    public var applySpeedPriors: Bool
 
     // MARK: - Storage
 
@@ -45,6 +50,14 @@ public struct KittenTTSConfig: Sendable {
     /// When set, ``KittenTTS`` loads these files directly and skips model
     /// downloads. This is intended for apps that bundle KittenTTS assets.
     public var modelFiles: KittenTTSModelFiles?
+
+    /// Inference backend. Defaults to ``KittenTTSInferenceEngine/onnx`` for
+    /// backwards compatibility.
+    public var inferenceEngine: KittenTTSInferenceEngine
+
+    /// Native C++ backend options. Used only when ``inferenceEngine`` is
+    /// ``KittenTTSInferenceEngine/native``.
+    public var nativeConfig: KittenTTSNativeConfig
 
     // MARK: - Phonemizer
 
@@ -88,18 +101,24 @@ public struct KittenTTSConfig: Sendable {
         model: KittenModel = .nano,
         defaultVoice: KittenVoice = .bella,
         speed: Float = 1.0,
+        applySpeedPriors: Bool = true,
         phonemizer: KittenPhonemizerType = .builtin,
         storageDirectory: URL? = nil,
         modelFiles: KittenTTSModelFiles? = nil,
+        inferenceEngine: KittenTTSInferenceEngine = .onnx,
+        nativeConfig: KittenTTSNativeConfig = KittenTTSNativeConfig(),
         ortNumThreads: Int = 4,
         maxTokensPerChunk: Int = 400
     ) {
         self.model             = model
         self.defaultVoice      = defaultVoice
         self.speed             = min(max(speed, 0.5), 2.0)
+        self.applySpeedPriors  = applySpeedPriors
         self.phonemizer        = phonemizer
         self.storageDirectory  = storageDirectory
         self.modelFiles        = modelFiles
+        self.inferenceEngine   = inferenceEngine
+        self.nativeConfig      = nativeConfig
         self.ortNumThreads     = max(1, ortNumThreads)
         self.maxTokensPerChunk = max(50, maxTokensPerChunk)
     }

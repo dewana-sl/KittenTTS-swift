@@ -5,16 +5,7 @@ import OnnxRuntimeBindings
 ///
 /// Orchestrates the full pipeline:
 /// `text → TextPreprocessor → Phonemizer → TextCleaner → ONNX → Float32 PCM`
-final class TTSEngine {
-
-    /// Internal result returned by ``generate(text:voice:speed:)``.
-    struct Output {
-        let samples: [Float]
-        /// Predicted frame count per input token (from the ONNX ``duration`` output).
-        let durations: [Int64]
-        /// The IPA phoneme string produced by the phonemizer (spaces between words).
-        let phonemes: String
-    }
+final class TTSEngine: TTSInferenceEngine, @unchecked Sendable {
 
     // MARK: - Private state
 
@@ -68,16 +59,17 @@ final class TTSEngine {
     ///   - speed: Effective speed multiplier (already pre-multiplied with voice's default).
     /// - Returns: An ``Output`` containing PCM samples, per-token durations, and the phoneme string.
     /// - Throws: ``KittenTTSError`` on inference failure or missing voice data.
-    func generate(text: String, voice: KittenVoice, speed: Float) throws -> Output {
+    func generate(text: String, voice: KittenVoice, speed: Float) throws -> TTSOutput {
         guard let embedding = voices[voice.rawValue] else {
             throw KittenTTSError.noVoiceEmbedding(voice)
         }
 
         let normalised = TextPreprocessor.process(text)
         let phonemes   = phonemizer.phonemize(normalised)
-        let tokens     = TextCleaner.encode(phonemes)
+        let tokens     = TextCleaner.encodeTokenized(phonemes)
         let chunks     = splitIntoChunks(tokens)
-        let effectiveSpeed = speed * config.model.speedPrior(for: voice)
+        let speedPrior = config.applySpeedPriors ? config.model.speedPrior(for: voice) : 1.0
+        let effectiveSpeed = speed * speedPrior
 
         var allSamples: [Float] = []
         var allDurations: [Int64] = []
@@ -102,7 +94,7 @@ final class TTSEngine {
         }
 
         guard !allSamples.isEmpty else { throw KittenTTSError.emptyOutput }
-        return Output(samples: allSamples, durations: allDurations, phonemes: phonemes)
+        return TTSOutput(samples: allSamples, durations: allDurations, phonemes: phonemes)
     }
 
     // MARK: - Private

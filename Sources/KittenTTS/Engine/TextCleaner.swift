@@ -52,4 +52,55 @@ enum TextCleaner {
         tokens.append(padTokenID)
         return tokens
     }
+
+    /// Encode using the Python ONNX pre-tokenization contract:
+    /// `basic_english_tokenize(phonemes).joined(separator: " ")`.
+    static func encodeTokenized(_ phonemes: String) -> [Int64] {
+        var tokens: [Int64] = [startTokenID]
+        for scalar in basicEnglishTokenize(phonemes).joined(separator: " ").unicodeScalars {
+            if let idx = symbolIndex[scalar] {
+                tokens.append(Int64(idx))
+            }
+        }
+        tokens.append(endTokenID)
+        tokens.append(padTokenID)
+        return tokens
+    }
+
+    /// Encode for the native C++ engine, matching the Python native adapter:
+    /// `[start, ...tokens, pad]` as Float32 IDs.
+    static func encodeNative(_ phonemes: String) -> [Float] {
+        var tokens: [Float] = [Float(startTokenID)]
+        for scalar in basicEnglishTokenize(phonemes).joined(separator: " ").unicodeScalars {
+            if let idx = symbolIndex[scalar] {
+                tokens.append(Float(idx))
+            }
+        }
+        tokens.append(Float(padTokenID))
+        return tokens
+    }
+
+    private static func basicEnglishTokenize(_ text: String) -> [String] {
+        var tokens: [String] = []
+        var current = ""
+
+        for scalar in text.unicodeScalars {
+            if CharacterSet.alphanumerics.contains(scalar) || scalar == "_" {
+                current.unicodeScalars.append(scalar)
+            } else {
+                if !current.isEmpty {
+                    tokens.append(current)
+                    current.removeAll(keepingCapacity: true)
+                }
+                if !CharacterSet.whitespacesAndNewlines.contains(scalar) {
+                    tokens.append(String(scalar))
+                }
+            }
+        }
+
+        if !current.isEmpty {
+            tokens.append(current)
+        }
+        return tokens
+    }
 }

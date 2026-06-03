@@ -8,8 +8,11 @@ final class KittenTTSConfigTests: XCTestCase {
         XCTAssertEqual(config.model,        .nano)
         XCTAssertEqual(config.defaultVoice, .bella)
         XCTAssertEqual(config.speed,        1.0, accuracy: 0.001)
+        XCTAssertTrue(config.applySpeedPriors)
         XCTAssertNil(config.storageDirectory)
         XCTAssertNil(config.modelFiles)
+        XCTAssertEqual(config.inferenceEngine, .onnx)
+        XCTAssertEqual(config.nativeConfig, KittenTTSNativeConfig())
         XCTAssertEqual(config.ortNumThreads,     4)
         XCTAssertEqual(config.maxTokensPerChunk, 400)
     }
@@ -56,5 +59,21 @@ final class KittenTTSConfigTests: XCTestCase {
 
         XCTAssertEqual(config.model, .nanoInt8)
         XCTAssertEqual(config.modelFiles, files)
+    }
+
+    func testNativeConfigCanBeSelectedWithoutChangingOnnxDefaults() {
+        let nativeConfig = KittenTTSNativeConfig(variant: .int8_15m)
+        let config = KittenTTSConfig(inferenceEngine: .native, nativeConfig: nativeConfig)
+
+        XCTAssertEqual(config.inferenceEngine, .native)
+        XCTAssertEqual(config.nativeConfig.variant, .int8_15m)
+        XCTAssertNil(KittenTTSConfig().nativeConfig.variant)
+    }
+
+    func testNativeVariantMappingMatchesPublicModels() {
+        XCTAssertEqual(KittenModel.nano.nativeVariant, .fp32_15m)
+        XCTAssertEqual(KittenModel.nanoInt8.nativeVariant, .int8_15m)
+        XCTAssertEqual(KittenModel.micro.nativeVariant, .fp32_40m)
+        XCTAssertEqual(KittenModel.mini.nativeVariant, .fp32_80m)
     }
 }

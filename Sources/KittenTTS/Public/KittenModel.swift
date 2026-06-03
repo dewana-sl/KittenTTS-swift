@@ -50,6 +50,16 @@ public enum KittenModel: String, CaseIterable, Sendable, Codable, Hashable {
     /// File name of the voice embeddings archive within the repository.
     public var voicesFileName: String { "voices.npz" }
 
+    /// Native C++ backend variant matching this public model.
+    var nativeVariant: KittenTTSNativeVariant {
+        switch self {
+        case .nano:     return .fp32_15m
+        case .nanoInt8: return .int8_15m
+        case .micro:    return .fp32_40m
+        case .mini:     return .fp32_80m
+        }
+    }
+
     // MARK: - Sizing
 
     /// Approximate total download size in bytes (for UI progress labels).

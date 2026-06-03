@@ -50,7 +50,7 @@ public actor KittenTTS {
 
     // MARK: - Private state
 
-    private let engine: TTSEngine
+    private let engine: any TTSInferenceEngine
     private let audioOutput = AudioOutput()
 
     // MARK: - Initializer
@@ -80,24 +80,50 @@ public actor KittenTTS {
         let storageDir = config.resolvedStorageDirectory
         try await phonemizer.downloadIfNeeded(to: storageDir, progressHandler: nil)
 
-        // Ensure model files are present
-        let (onnxURL, voicesURL) = try await ModelDownloader.downloadModelIfNeeded(
-            for: config,
-            progressHandler: downloadProgressHandler
-        )
+        switch config.inferenceEngine {
+        case .onnx:
+            // Ensure model files are present
+            let (onnxURL, voicesURL) = try await ModelDownloader.downloadModelIfNeeded(
+                for: config,
+                progressHandler: downloadProgressHandler
+            )
 
-        // Validate files exist after download
-        guard FileManager.default.fileExists(atPath: onnxURL.path) else {
-            throw KittenTTSError.modelFileNotFound(onnxURL)
-        }
-        guard FileManager.default.fileExists(atPath: voicesURL.path) else {
-            throw KittenTTSError.voicesFileNotFound(voicesURL)
-        }
+            // Validate files exist after download
+            guard FileManager.default.fileExists(atPath: onnxURL.path) else {
+                throw KittenTTSError.modelFileNotFound(onnxURL)
+            }
+            guard FileManager.default.fileExists(atPath: voicesURL.path) else {
+                throw KittenTTSError.voicesFileNotFound(voicesURL)
+            }
 
-        // Initialise ONNX engine on a background thread (pass pre-resolved phonemizer)
-        self.engine = try await Task.detached(priority: .userInitiated) {
-            try TTSEngine(modelURL: onnxURL, voicesURL: voicesURL, config: config, phonemizer: phonemizer)
-        }.value
+            // Initialise ONNX engine on a background thread (pass pre-resolved phonemizer)
+            self.engine = try await Task.detached(priority: .userInitiated) {
+                try TTSEngine(modelURL: onnxURL, voicesURL: voicesURL, config: config, phonemizer: phonemizer)
+            }.value
+
+        case .native:
+            let assets = try await NativeAssetDownloader.downloadNativeAssetsIfNeeded(
+                for: config,
+                progressHandler: downloadProgressHandler
+            )
+
+            guard FileManager.default.fileExists(atPath: assets.archURL.path) else {
+                throw KittenTTSError.modelFileNotFound(assets.archURL)
+            }
+            guard FileManager.default.fileExists(atPath: assets.weightsURL.path) else {
+                throw KittenTTSError.modelFileNotFound(assets.weightsURL)
+            }
+
+            self.engine = try await Task.detached(priority: .userInitiated) {
+                try NativeTTSEngine(
+                    archURL: assets.archURL,
+                    weightsURL: assets.weightsURL,
+                    voiceDirectoryURL: assets.voiceDirectoryURL,
+                    config: config,
+                    phonemizer: phonemizer
+                )
+            }.value
+        }
     }
 
     // MARK: - Generation
@@ -121,7 +147,8 @@ public actor KittenTTS {
 
         let selectedVoice = voice ?? config.defaultVoice
         let selectedSpeed = min(max(speed ?? config.speed, 0.5), 2.0)
-        let effectiveSpeed = selectedSpeed * config.model.speedPrior(for: selectedVoice)
+        let speedPrior = config.applySpeedPriors ? config.model.speedPrior(for: selectedVoice) : 1.0
+        let effectiveSpeed = selectedSpeed * speedPrior
 
         let output = try await Task.detached(priority: .userInitiated) { [engine] in
             try engine.generate(text: trimmed, voice: selectedVoice, speed: selectedSpeed)
@@ -180,7 +207,8 @@ public actor KittenTTS {
                 }
 
                 let sentences = SentenceSplitter.split(trimmed)
-                let effectiveSpeed = selectedSpeed * config.model.speedPrior(for: selectedVoice)
+                let speedPrior = config.applySpeedPriors ? config.model.speedPrior(for: selectedVoice) : 1.0
+                let effectiveSpeed = selectedSpeed * speedPrior
 
                 do {
                     for sentence in sentences {
